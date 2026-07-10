@@ -34,14 +34,13 @@ public class OpenBerlinS21Scenario extends OpenBerlinScenario {
 		var vehicleType = scenario.getTransitVehicles().getVehicleTypes().get(Id.create("S-Bahn_veh_type", VehicleType.class));
 
 		// Add Network Elements
-		var network = NetworkUtils.readNetwork();
+		var network = NetworkUtils.readNetwork(https://svn.vsp.tu-berlin.de/repos/public-svn/matsim/scenarios/countries/de/berlin/berlin-v6.4/input/berlin-v6.4-network-with-pt.xml.gz);
 
 		// Nodes
 
 		// Ideal ware Westhafen>wedding>perlebergerbruecke> Hbf> Potsdamer Platz > Gleisdreieck> yorckstrasse grossgorchen> Julius Leber Brücke> südkreuz
 		//TODO: new node for perleberger Bruecke
-		var fromNode = network.getFactory().createNode(Id.createNodeId("from"), new Coord(0,0));
-		var toNode = network.getFactory().createNode(Id.createNodeId("to"), new Coord(100,100));
+		var fromNode = network.getFactory().createNode(Id.createNodeId("from"), new Coord(13.35836,52.53642));
 
 		// Add Nodes
 		network.addNode(fromNode);
