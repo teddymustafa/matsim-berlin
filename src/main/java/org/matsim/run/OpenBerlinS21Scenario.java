@@ -22,8 +22,6 @@ import java.util.Set;
 
 public class OpenBerlinS21Scenario extends OpenBerlinScenario {
 
-	private static final String LINE_NAME = "S21";
-
 
 	public static void main(String[] args) {
 		MATSimApplication.execute(OpenBerlinS21Scenario.class, args);
