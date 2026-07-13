@@ -32,7 +32,7 @@ public class OpenBerlinS21Scenario extends OpenBerlinScenario {
 		SimWrapperConfigGroup sw = ConfigUtils.addOrGetModule(config, SimWrapperConfigGroup.class);
 		sw.defaultDashboards = SimWrapperConfigGroup.Mode.disabled;
 		config.controller().setLastIteration(0);
-		config.controller().setOutputDirectory("output-s21-third");
+		config.controller().setOutputDirectory("output-s21-policy");
 		//config.transit().setUseTransit(true); when not turned on
 		//set ScoringConfig when not done / given
 		//set mode choice when not done / given
@@ -45,29 +45,33 @@ public class OpenBerlinS21Scenario extends OpenBerlinScenario {
 		super.prepareScenario(scenario);
 
 		// Determination of Fixed Values
+			// FOR DEPARTURE AND SCHEDULING
 		double firstDep = 4.5*3600; // 04:30 AM
 		double lastDep = 25.5 * 3600; // 01:30 AM next day
 		int i = 0;
+
+		// S-Bahn-specific characteristics
 		double s21Freespeed = 22.22; // 80 kph
 		double stopTime = 10.0; // Stops for 10 s (doors opening)
-		int headway = 5 * 60; // Every 5 Minutes
+		int headway = 5 * 60; // Service every 5 Minutes
 
 		// Loading the Network Elements
 		var network = scenario.getNetwork();
 
-		// NODES -> Commonly shared
-		// Creating 2 Nodes for S21
+		// ================
+		// NODES
+		// ================
+			// Creating 2 new Nodes for S21
 		var perlbruck = network.getFactory().createNode(Id.createNodeId("pt_perlbruck_suburbanRailway"), new Coord(795540.18,5829632.68));
-		var gleisdreieck = network.getFactory().createNode(Id.createNodeId("pt_gleisdreieck_suburbanRailway"), new Coord(796845.48,5825610.95));
+		var gleisdreieck = network.getFactory().createNode(Id.createNodeId("pt_gleisdreieck_suburbanRailway"), new Coord(796851.26,5825596.36));
 
-		// Adding 2 new Nodes for S21
+			// Adding these new Nodes into the network
 		List<Node> nodes= List.of(perlbruck, gleisdreieck);
 		for(Node node : nodes) {
 			network.addNode(node);
 		}
 
 		// Load new and existing nodes necessary for creation of S21 line
-		Node westhafenNode = network.getNodes().get(Id.createNodeId("pt_473821_SuburbanRailway"));
 		Node weddingNode = network.getNodes().get(Id.createNodeId("pt_4832_SuburbanRailway"));
 		Node perlNode = network.getNodes().get(Id.createNodeId("pt_perlbruck_suburbanRailway"));
 		Node hbfNode = network.getNodes().get(Id.createNodeId("pt_359974_SuburbanRailway"));
@@ -77,18 +81,15 @@ public class OpenBerlinS21Scenario extends OpenBerlinScenario {
 		Node juliusNode = network.getNodes().get(Id.createNodeId("pt_175655_SuburbanRailway"));
 		Node sudkreuzNode = network.getNodes().get(Id.createNodeId("pt_176775_SuburbanRailway"));
 
-		// In this Order: Links, Links List, Stations List, its Implementation to Network Route,
-
+		// ================
+		// LINKS
+		// ================
+		// FORWARD DIRECTION
+		// ================
 		// LOOP LINK -> Starting Link
 		Link linkS21LoopLink = network.getFactory().createLink(
 			Id.createLinkId("linkS21LoopLink_s21_SuburbanRailway"),
-			westhafenNode,
-			westhafenNode
-		);
-
-		Link linkWesthafenWedding = network.getFactory().createLink(
-			Id.createLinkId("WesthafenWedding_s21_SuburbanRailway"),
-			westhafenNode,
+			weddingNode,
 			weddingNode
 		);
 
@@ -137,7 +138,6 @@ public class OpenBerlinS21Scenario extends OpenBerlinScenario {
 		// Add Links for S21 Forward Direction
 		List<Link> links = List.of(
 			linkS21LoopLink,
-			linkWesthafenWedding,
 			linkWeddingPerlbruck,
 			linkPerlbruckHbf,
 			linkHbfPotsdamer,
@@ -157,34 +157,44 @@ public class OpenBerlinS21Scenario extends OpenBerlinScenario {
 					link.getFromNode().getCoord(),link.getToNode().getCoord()
 				));
 			}
+			// S-Bahn-specific Link Characteristics
 			link.setCapacity(100000.0);
 			link.setFreespeed(s21Freespeed);
 			link.setAllowedModes(Set.of("pt"));
 			network.addLink(link);
 		}
 
-		// ================
-		// TRANSIT FACILITY
-		// ================
-		// Creating Stops Forward Direction
-		// CREATING LOOP STOP
-		TransitStopFacility WesthafenonLoop = scenario.getTransitSchedule().getFactory()
-			.createTransitStopFacility(
-				Id.create("WesthafenonLoop", TransitStopFacility.class),
-				westhafenNode.getCoord(),
-				false);
-		WesthafenonLoop.setLinkId(linkS21LoopLink.getId());
-		WesthafenonLoop.setName("S+U Westhafen");
-		scenario.getTransitSchedule().addStopFacility(WesthafenonLoop);
+		// Listing links to create networkRoute Forward Direction
+		List<Id<Link>> linkroutesFwd = List.of(
+			linkWeddingPerlbruck.getId(),
+			linkPerlbruckHbf.getId(),
+			linkHbfPotsdamer.getId(),
+			linkPotsdamerGleisdreieck.getId(),
+			linkGleisdreieckYorck.getId(),
+			linkYorckJulius.getId()
+		);
+		// Creating networkRoute Forward Direction
+		NetworkRoute networkRouteFwd = RouteUtils.createLinkNetworkRouteImpl(
+			linkS21LoopLink.getId(),
+			linkroutesFwd,
+			linkJuliusSudkreuz.getId()
+		);
 
-		TransitStopFacility toWeddingFromWesthafen = scenario.getTransitSchedule().getFactory()
+
+		// ================
+		// TRANSIT STOP FACILITY
+		// ================
+		// FORWARD DIRECTION
+		// ================
+		// CREATING LOOP STOP
+		TransitStopFacility WeddingonLoop = scenario.getTransitSchedule().getFactory()
 			.createTransitStopFacility(
-			Id.create("toWeddingFromWesthafen", TransitStopFacility.class),
-			weddingNode.getCoord(),
-			false);
-		toWeddingFromWesthafen.setLinkId(linkWesthafenWedding.getId());
-		toWeddingFromWesthafen.setName("S+U Wedding");
-		scenario.getTransitSchedule().addStopFacility(toWeddingFromWesthafen);
+				Id.create("WeddingonLoop", TransitStopFacility.class),
+				weddingNode.getCoord(),
+				false);
+		WeddingonLoop.setLinkId(linkS21LoopLink.getId());
+		WeddingonLoop.setName("S+U Wedding");
+		scenario.getTransitSchedule().addStopFacility(WeddingonLoop);
 
 		TransitStopFacility toPerlbruckFromWedding = scenario.getTransitSchedule().getFactory()
 			.createTransitStopFacility(
@@ -249,46 +259,18 @@ public class OpenBerlinS21Scenario extends OpenBerlinScenario {
 		toSudkreuzFromJulius.setName("S Südkreuz");
 		scenario.getTransitSchedule().addStopFacility(toSudkreuzFromJulius);
 
-		// Implementing Links into the Network Route FORWARD DIRECTION
-		List<Id<Link>> linkroutes = List.of(
-			linkWesthafenWedding.getId(),
-			linkWeddingPerlbruck.getId(),
-			linkPerlbruckHbf.getId(),
-			linkHbfPotsdamer.getId(),
-			linkPotsdamerGleisdreieck.getId(),
-			linkGleisdreieckYorck.getId(),
-			linkYorckJulius.getId()
-		);
-		// Creating networkRoute
-		NetworkRoute networkRoute = RouteUtils.createLinkNetworkRouteImpl(
-			linkS21LoopLink.getId(),
-			linkroutes,
-			linkJuliusSudkreuz.getId()
-		);
-
 		// ================
-		// TRANSIT SCHEDULE
+		// TRANSIT ROUTE STOPS
+		// ================
+		// FORWARD DIRECTION
 		// ================
 		// Transit Route Stops Forward Direction
 		// Travel Time is calculated with BeeLine Distance as an assumption
 		List<TransitRouteStop> stops = new ArrayList<>();
 		stops.add(scenario.getTransitSchedule().getFactory().createTransitRouteStop(
-			WesthafenonLoop,
+			WeddingonLoop,
 			0.0d,
 			stopTime));
-
-		double travelTimeWesthafenToWedding = NetworkUtils
-			// Calculation of Travel Time with BeeLine Distance
-			// t = s_euclidean/v
-			.getEuclideanDistance(
-				westhafenNode.getCoord(),
-				weddingNode.getCoord())
-			/ s21Freespeed + 1;
-		// Add Entry to stops
-		stops.add(scenario.getTransitSchedule().getFactory().createTransitRouteStop(
-			toWeddingFromWesthafen,
-			stops.getLast().getDepartureOffset().seconds() + travelTimeWesthafenToWedding,
-			stops.getLast().getDepartureOffset().seconds() + travelTimeWesthafenToWedding + stopTime));
 
 		double travelTimeWeddingToPerlbruck = NetworkUtils
 			.getEuclideanDistance(weddingNode.getCoord(), perlNode.getCoord()) / s21Freespeed + 1;
@@ -361,30 +343,40 @@ public class OpenBerlinS21Scenario extends OpenBerlinScenario {
 			s.setAwaitDepartureTime(true);
 		}
 
-		// Create TransitRoute
-		// TransitRoute (name of Route, route, list of stops, mode)
-		//
-		TransitRoute transitRoute = scenario.getTransitSchedule().getFactory()
+		// ================
+		// TRANSIT ROUTE
+		// ================
+		// FORWARD DIRECTION
+		// ================
+		TransitRoute transitRouteFwd = scenario.getTransitSchedule().getFactory()
 			.createTransitRoute(
 				Id.create("S21_Wedding_Sudkreuz", TransitRoute.class),
-				networkRoute,
+				networkRouteFwd,
 				stops,
 				"pt"
 			);
 
-		// Service Frequency
+		// ================
+		// DEPARTURE
+		// ================
+		// FORWARD DIRECTION
+		// ================
 		for (double t = firstDep; t <= lastDep; t += headway) {
-			Departure departure = scenario.getTransitSchedule().getFactory().createDeparture(Id.create("pt_s21_" + i, Departure.class), t);
+			Departure departure = scenario.getTransitSchedule().getFactory().createDeparture(Id.create("pt_S21_Wedding_Sudkreuz_" + i, Departure.class), t);
 			scenario.getTransitVehicles().addVehicle(
 				scenario.getTransitVehicles().getFactory().createVehicle(
-					Id.createVehicleId("pt_s21_" + t),
+					Id.createVehicleId("pt_S21_Wedding_Sudkreuz_" + i),
 					scenario.getTransitVehicles().getVehicleTypes().get(Id.create("S-Bahn_veh_type", VehicleType.class))));
-			departure.setVehicleId(Id.createVehicleId("pt_s21_" + i));
-			transitRoute.addDeparture(departure);
+			departure.setVehicleId(Id.createVehicleId("pt_S21_Wedding_Sudkreuz_" + i));
+			transitRouteFwd.addDeparture(departure);
 			i++;
 		}
 
-		// THE SAME THING REVERSED:
+		// ================
+		// LINKS
+		// ================
+		// REVERSED DIRECTION
+		// ================
 		Link linkS21LoopLinkRev = network.getFactory().createLink(
 			Id.createLinkId("linkS21LoopLinkRev_s21_SuburbanRailway"),
 			sudkreuzNode,
@@ -425,11 +417,6 @@ public class OpenBerlinS21Scenario extends OpenBerlinScenario {
 			perlNode,
 			weddingNode
 		);
-		Link linkWeddingWesthafen = network.getFactory().createLink(
-			Id.createLinkId("WeddingWesthafen_s21_SuburbanRailway"),
-			weddingNode,
-			westhafenNode
-		);
 
 		// Add Links for S21 (reverse)
 		List<Link> linksRev = List.of(
@@ -440,8 +427,7 @@ public class OpenBerlinS21Scenario extends OpenBerlinScenario {
 			linkGleisdreieckPotsdamer,
 			linkPotsdamerHbf,
 			linkHbfPerlbruck,
-			linkPerlbruckWedding,
-			linkWeddingWesthafen
+			linkPerlbruckWedding
 		);
 		for(Link link : linksRev) {
 			if(link.equals(linkS21LoopLinkRev)){
@@ -458,7 +444,28 @@ public class OpenBerlinS21Scenario extends OpenBerlinScenario {
 			network.addLink(link);
 		}
 
-		// STOPS REVERSED
+		// Listing links to create networkRoute Reversed Direction
+		List<Id<Link>> linkroutesRev = List.of(
+			linkSudkreuzJulius.getId(),
+			linkJuliusYorck.getId(),
+			linkYorckGleisdreieck.getId(),
+			linkGleisdreieckPotsdamer.getId(),
+			linkPotsdamerHbf.getId(),
+			linkHbfPerlbruck.getId()
+		);
+
+		// Creating networkRoute Reversed Direction
+		NetworkRoute networkRouteRev = RouteUtils.createLinkNetworkRouteImpl(
+			linkS21LoopLinkRev.getId(),
+			linkroutesRev,
+			linkPerlbruckWedding.getId()
+		);
+
+		// ================
+		// TRANSIT STOP FACILITY
+		// ================
+		// REVERSED DIRECTION
+		// ================
 		TransitStopFacility SudkreuzonLoop = scenario.getTransitSchedule().getFactory()
 			.createTransitStopFacility(
 				Id.create("SudkreuzonLoop", TransitStopFacility.class),
@@ -531,33 +538,11 @@ public class OpenBerlinS21Scenario extends OpenBerlinScenario {
 		toWeddingFromPerlbruck.setName("S+U Wedding");
 		scenario.getTransitSchedule().addStopFacility(toWeddingFromPerlbruck);
 
-		TransitStopFacility toWesthafenFromWedding = scenario.getTransitSchedule().getFactory()
-			.createTransitStopFacility(
-				Id.create("toWesthafenFromWedding", TransitStopFacility.class),
-				westhafenNode.getCoord(),
-				false);
-		toWesthafenFromWedding.setLinkId(linkWeddingWesthafen.getId());
-		toWesthafenFromWedding.setName("S+U Westhafen");
-		scenario.getTransitSchedule().addStopFacility(toWesthafenFromWedding);
-
-
-		List<Id<Link>> linkroutesRev = List.of(
-			linkSudkreuzJulius.getId(),
-			linkJuliusYorck.getId(),
-			linkYorckGleisdreieck.getId(),
-			linkGleisdreieckPotsdamer.getId(),
-			linkPotsdamerHbf.getId(),
-			linkHbfPerlbruck.getId(),
-			linkPerlbruckWedding.getId()
-		);
-
-		// networkRoute REVERSED
-		NetworkRoute networkRouteRev = RouteUtils.createLinkNetworkRouteImpl(
-			linkS21LoopLinkRev.getId(),
-			linkroutesRev,
-			linkWeddingWesthafen.getId()
-		);
-
+		// ================
+		// TRANSIT ROUTE STOP
+		// ================
+		// REVERSED DIRECTION
+		// ================
 		List<TransitRouteStop> stopsRev = new ArrayList<>();
 		stopsRev.add(scenario.getTransitSchedule().getFactory().createTransitRouteStop(
 			SudkreuzonLoop,
@@ -634,21 +619,15 @@ public class OpenBerlinS21Scenario extends OpenBerlinScenario {
 			stopsRev.getLast().getDepartureOffset().seconds() + travelTimePerlbruckToWedding,
 			stopsRev.getLast().getDepartureOffset().seconds() + travelTimePerlbruckToWedding + stopTime));
 
-		double travelTimeWeddingToWesthafen = NetworkUtils
-			.getEuclideanDistance(
-				weddingNode.getCoord(),
-				westhafenNode.getCoord())
-			/ s21Freespeed + 1;
-		stopsRev.add(scenario.getTransitSchedule().getFactory().createTransitRouteStop(
-			toWesthafenFromWedding,
-			stopsRev.getLast().getDepartureOffset().seconds() + travelTimeWeddingToWesthafen,
-			stopsRev.getLast().getDepartureOffset().seconds() + travelTimeWeddingToWesthafen + stopTime));
-
 		for (TransitRouteStop s : stopsRev) {
 			s.setAwaitDepartureTime(true);
 		}
 
-		// Reversed
+		// ================
+		// TRANSIT ROUTE
+		// ================
+		// REVERSED DIRECTION
+		// ================
 		TransitRoute transitRouteRev = scenario.getTransitSchedule().getFactory()
 			.createTransitRoute(
 				Id.create("S21_Sudkreuz_Wedding", TransitRoute.class),
@@ -657,25 +636,31 @@ public class OpenBerlinS21Scenario extends OpenBerlinScenario {
 				"pt"
 			);
 
-		// ── REVERSE departures (ADD THIS — note: pt_s21_rev_ and transitRouteRev) ──
+		// ================
+		// DEPARTURE
+		// ================
+		// REVERSED DIRECTION
+		// ================
 		i = 0; //RESETS FOR REVERSE DIRECTION
 		for (double t = firstDep; t <= lastDep; t += headway) {
 			Departure departure = scenario.getTransitSchedule().getFactory()
-				.createDeparture(Id.create("pt_s21_rev_" + i, Departure.class), t);
+				.createDeparture(Id.create("pt_S21_Sudkreuz_Wedding_" + i, Departure.class), t);
 			scenario.getTransitVehicles().addVehicle(
 				scenario.getTransitVehicles().getFactory().createVehicle(
-					Id.createVehicleId("pt_s21_rev_" + i),
+					Id.createVehicleId("pt_S21_Sudkreuz_Wedding_" + i),
 					scenario.getTransitVehicles().getVehicleTypes().get(Id.create("S-Bahn_veh_type", VehicleType.class))));
-			departure.setVehicleId(Id.createVehicleId("pt_s21_rev_" + i));
+			departure.setVehicleId(Id.createVehicleId("pt_S21_Sudkreuz_Wedding_" + i));
 			transitRouteRev.addDeparture(departure);
 			i++;
 		}
 
-		// Creating the TransitLine
+		// ================
+		// TRANSIT LINE
+		// ================
 		TransitLine transitLine = scenario.getTransitSchedule().getFactory().createTransitLine(Id.create("S21", TransitLine.class));
 		transitLine.setName("S21");
-		transitLine.addRoute(transitRoute);
-		transitLine.addRoute(transitRouteRev);
+		transitLine.addRoute(transitRouteFwd); // FORWARD DIRECTON
+		transitLine.addRoute(transitRouteRev); // REVERSED DIRECTION
 		scenario.getTransitSchedule().addTransitLine(transitLine);
 	}
 }
