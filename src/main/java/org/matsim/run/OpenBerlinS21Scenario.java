@@ -33,6 +33,9 @@ public class OpenBerlinS21Scenario extends OpenBerlinScenario {
 		sw.defaultDashboards = SimWrapperConfigGroup.Mode.disabled;
 		config.controller().setLastIteration(0);
 		config.controller().setOutputDirectory("output-s21-third");
+		//config.transit().setUseTransit(true); when not turned on
+		//set ScoringConfig when not done / given
+		//set mode choice when not done / given
 
 		return config;
 	}
@@ -44,7 +47,7 @@ public class OpenBerlinS21Scenario extends OpenBerlinScenario {
 		// Determination of Fixed Values
 		double firstDep = 4.5*3600; // 04:30 AM
 		double lastDep = 25.5 * 3600; // 01:30 AM next day
-		int i = 0; // for schedule
+		int i = 0;
 		double s21Freespeed = 22.22; // 80 kph
 		double stopTime = 10.0; // Stops for 10 s (doors opening)
 		int headway = 5 * 60; // Every 5 Minutes
@@ -354,14 +357,16 @@ public class OpenBerlinS21Scenario extends OpenBerlinScenario {
 			stops.getLast().getDepartureOffset().seconds() + travelTimeJuliusToSudkreuz,
 			stops.getLast().getDepartureOffset().seconds() + travelTimeJuliusToSudkreuz + stopTime));
 
-		stops.forEach(s -> s.setAwaitDepartureTime(true));
+		for (TransitRouteStop s : stops) {
+			s.setAwaitDepartureTime(true);
+		}
 
 		// Create TransitRoute
 		// TransitRoute (name of Route, route, list of stops, mode)
 		//
 		TransitRoute transitRoute = scenario.getTransitSchedule().getFactory()
 			.createTransitRoute(
-				Id.create("s21", TransitRoute.class),
+				Id.create("S21_Wedding_Sudkreuz", TransitRoute.class),
 				networkRoute,
 				stops,
 				"pt"
@@ -372,7 +377,7 @@ public class OpenBerlinS21Scenario extends OpenBerlinScenario {
 			Departure departure = scenario.getTransitSchedule().getFactory().createDeparture(Id.create("pt_s21_" + i, Departure.class), t);
 			scenario.getTransitVehicles().addVehicle(
 				scenario.getTransitVehicles().getFactory().createVehicle(
-					Id.createVehicleId("pt_s21_" + i),
+					Id.createVehicleId("pt_s21_" + t),
 					scenario.getTransitVehicles().getVehicleTypes().get(Id.create("S-Bahn_veh_type", VehicleType.class))));
 			departure.setVehicleId(Id.createVehicleId("pt_s21_" + i));
 			transitRoute.addDeparture(departure);
@@ -639,18 +644,21 @@ public class OpenBerlinS21Scenario extends OpenBerlinScenario {
 			stopsRev.getLast().getDepartureOffset().seconds() + travelTimeWeddingToWesthafen,
 			stopsRev.getLast().getDepartureOffset().seconds() + travelTimeWeddingToWesthafen + stopTime));
 
-		stops.forEach(s -> s.setAwaitDepartureTime(true));
+		for (TransitRouteStop s : stopsRev) {
+			s.setAwaitDepartureTime(true);
+		}
 
 		// Reversed
 		TransitRoute transitRouteRev = scenario.getTransitSchedule().getFactory()
 			.createTransitRoute(
-				Id.create("s21_rev", TransitRoute.class),
+				Id.create("S21_Sudkreuz_Wedding", TransitRoute.class),
 				networkRouteRev,
 				stopsRev,
 				"pt"
 			);
 
 		// ── REVERSE departures (ADD THIS — note: pt_s21_rev_ and transitRouteRev) ──
+		i = 0; //RESETS FOR REVERSE DIRECTION
 		for (double t = firstDep; t <= lastDep; t += headway) {
 			Departure departure = scenario.getTransitSchedule().getFactory()
 				.createDeparture(Id.create("pt_s21_rev_" + i, Departure.class), t);
